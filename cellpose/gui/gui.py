@@ -610,6 +610,13 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.autobtn, b,0,1,5)
 
         b+=1
+        self.allbtn = QCheckBox('adjust all')
+        self.allbtn.setStyleSheet(self.checkstyle)
+        self.allbtn.setFont(self.medfont)
+        self.allbtn.setChecked(False)
+        self.l0.addWidget(self.allbtn, b,0,1,5)
+
+        b+=1
         self.slider = guiparts.RangeSlider(self)
         self.slider.setMinimum(0)
         self.slider.setMaximum(255)

@@ -613,7 +613,7 @@ class MainW(QMainWindow):
         self.allbtn = QCheckBox('adjust all')
         self.allbtn.setStyleSheet(self.checkstyle)
         self.allbtn.setFont(self.medfont)
-        self.allbtn.setChecked(False)
+        self.allbtn.setChecked(True)
         self.l0.addWidget(self.allbtn, b,0,1,5)
 
         b+=1
@@ -626,8 +626,12 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.slider, b,0,1,9)
 
         b+=1
-        self.l0.addWidget(QLabel(''),b,0,1,5)
-        self.l0.setRowStretch(b, 1)
+        self.regionbtn = QCheckBox('region mode')
+        self.regionbtn.setStyleSheet(self.checkstyle)
+        self.regionbtn.setFont(self.medfont)
+        self.regionbtn.setChecked(False)
+        self.regionbtn.toggled.connect(self.toggle_region_mode)
+        self.l0.addWidget(self.regionbtn, b,0,1,5)
 
         # cross-hair
         self.vLine = pg.InfiniteLine(angle=90, movable=False)
@@ -931,6 +935,15 @@ class MainW(QMainWindow):
             self.update_plot()
             self.update_layer()
 
+    def toggle_region_mode(self):
+        if self.regionbtn.isChecked():
+            self.regionModeOn = True
+            self.regionPoints = []
+        else:
+            self.regionModeOn = False
+            for point in self.regionPoints:
+                self.p0.removeItem(point)
+
 
     def move_in_Z(self):
         if self.loaded:
@@ -1138,7 +1151,7 @@ class MainW(QMainWindow):
                 self.update_layer()
         self.selected = 0
 
-    def remove_cell(self, idx):
+    def remove_cell(self, idx, display=True):
         # remove from manual array
         self.selected = 0
         if self.NZ > 1:
@@ -1170,7 +1183,8 @@ class MainW(QMainWindow):
         self.cellcolors = np.delete(self.cellcolors, [idx], axis=0)
         del self.zdraw[idx-1]
         self.ncells -= 1
-        print('GUI_INFO: removed cell %d'%(idx-1))
+        if display is True:
+            print('GUI_INFO: removed cell %d'%(idx-1))
         
         self.update_layer()
         if self.ncells==0:

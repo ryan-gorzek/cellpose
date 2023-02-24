@@ -7,6 +7,7 @@ from pyqtgraph import functions as fn
 from pyqtgraph import Point
 import numpy as np
 import pathlib, os
+from tqdm import tqdm
 
 def create_channel_choose():
     # choose channel
@@ -547,7 +548,15 @@ class ImageDraw(pg.ImageItem):
         self.parent.in_stroke = False
 
     def mouseClickEvent(self, ev):
-        if self.parent.masksOn or self.parent.outlinesOn:
+        if self.parent.regionModeOn:
+            if ev.button() == QtCore.Qt.LeftButton:
+                y, x = int(ev.pos().y()), int(ev.pos().x())
+                self.updateRegionPoints((x, y))
+            elif ev.button() == QtCore.Qt.RightButton:
+                self.updateRegionPoints((None, None), remove=True)
+            elif ev.button() == QtCore.Qt.MiddleButton:
+                self.removeOutsideRegion()
+        elif self.parent.masksOn or self.parent.outlinesOn:
             if  self.parent.loaded and (ev.button()==QtCore.Qt.RightButton or 
                     ev.modifiers() == QtCore.Qt.ShiftModifier and not ev.double()):
                 if not self.parent.in_stroke:
@@ -698,6 +707,46 @@ class ImageDraw(pg.ImageItem):
         self.redmask = np.concatenate((onmask,offmask,offmask,onmask), axis=-1)
         self.strokemask = np.concatenate((onmask,offmask,onmask,opamask), axis=-1)
 
+    def updateRegionPoints(self, pos, remove=False):
+        if remove is False:
+            for point in self.parent.regionPoints:
+                self.parent.p0.removeItem(point)
+            new_point = pg.ScatterPlotItem([pos[0]], [pos[1]], pxMode=False,
+                                            pen=pg.mkPen(color=(255,0,0), width=self.parent.brush_size),
+                                            size=max(2, self.parent.brush_size*2), brush=None)
+            self.parent.regionPoints.append(new_point)
+            for point in self.parent.regionPoints:
+                self.parent.p0.addItem(point)
+        else:
+            for point in self.parent.regionPoints:
+                self.parent.p0.removeItem(point)
+            self.parent.regionPoints = self.parent.regionPoints[:-1]
+            for point in self.parent.regionPoints:
+                self.parent.p0.addItem(point)
+
+    def removeOutsideRegion(self):
+        if len(self.parent.regionPoints) > 3:
+            from shapely.geometry import Point as shPoint
+            from shapely.geometry.polygon import Polygon as shPolygon
+            from skimage.measure import label, regionprops
+            points = []
+            for point in self.parent.regionPoints:
+                point_data = point.getData()
+                points.append((point_data[0][0], point_data[1][0]))
+            polygon = shPolygon(points)
+            print("Removing cells outside of selected region...")
+            remove_count = 0
+            for idx in tqdm(np.unique(self.parent.cellpix)[1:]):
+                idx = idx - remove_count
+                two_d_img = (self.parent.cellpix == idx).sum(axis=0) > 0
+                label_img = label(two_d_img)
+                region = regionprops(label_img)
+                centroid = shPoint(region[0].centroid[::-1])
+                if not polygon.contains(centroid):
+                    self.parent.remove_cell(idx, display=False)
+                    remove_count += 1
+            self.parent.regionbtn.setChecked(False)
+            print("Done removing cells!")
 
 class RangeSlider(QSlider):
     """ A slider for ranges.
